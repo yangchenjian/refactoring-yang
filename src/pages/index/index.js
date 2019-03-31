@@ -6,10 +6,9 @@ import Vue from 'vue'
 import axios from 'axios'
 // 把装存api的文件拿过来
 import url from 'js/api.js'
+
 // 把过滤器的文件拿来
 import globalFilter from 'js/filter.js'
-
-
 
 // 按需要加载的 InfiniteScroll 组件  
 import { InfiniteScroll,Swipe, SwipeItem } from 'mint-ui';
@@ -52,7 +51,6 @@ let app = new Vue({
 			getHotlistData(){
 				// 如果 allLoaded 为true 那么直接停止请求
 				if(this.allLoaded) return
-
 				// 请求锁 开
 				this.isLoading =  true, 
 				axios.get(url.hotlists,{
@@ -69,9 +67,9 @@ let app = new Vue({
 							//  if(this.allLoaded) return 写在请求方法伊始
 							this.allLoaded = true
 						}
-						if(this.lists ){
+						// 如果有还能有数据 那就把数据拼起来
+						if(this.lists){
 							this.lists = this.lists.concat(curLists)
-							this.pageNum++
 						}else{
 							this.lists = curLists
 						}
@@ -105,15 +103,8 @@ let app = new Vue({
 		this.getIndexBanner()
 
 	},//created
-
 	components: {
     Bottomnav,
     Swiper,
   },
-
-
-
-
-
-
 })

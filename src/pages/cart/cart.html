@@ -83,8 +83,8 @@
                         <div class="name-card clearfix">
                           <!-- 跳转到商品详情 记着带上商品的id  ⚠️ 图片有懒加载效果~-->
                           <!-- 暂时去掉a链接 跳来跳去好烦-->
-                         <!--  <a class="imgUrl" :href=" '/goods.html?id=' + goodItem.id "> -->
-                           <a class="imgUrl" href=" javascript:;">
+                          <a class="imgUrl" :href=" '/goods.html?id=' + good.id ">
+                          <!--  <a class="imgUrl" href=" javascript:;"> -->
                             <img :data-src="good.image" class="js-lazy" :src="good.image">
                           </a>
                           <div class="detail">
@@ -118,11 +118,12 @@
                                 :class="{disabled:good.number===1}"
                                 ></button>
                                 <!-- 利用v-modle进行双向数值绑定 -->
-                                <input type="text" pattern="[0-9]*" class="txt" 
+                                <input type="number" pattern="[0-9]*" class="txt" 
                                   v-model="good.number"
                                 >
                                 <button type="button" class="plus "></button>
                                 <div class="response-area response-area-minus"
+                                     :class="{disabled:good.number===1}"
                                      @click="reduce(good)"
                                 ></div>
                                 <div class="response-area response-area-plus"
@@ -268,8 +269,7 @@
                   class="js-go-pay btn btn-orange-dark font-size-14" 
                   style="display: none;"
                 > -->
-                 <button 
-                  href="javascript:;" 
+                 <button href="javascript:;" 
                   :disabled="!selectedLists.length" 
                   class="js-go-pay btn btn-orange-dark font-size-14" 
                 >
@@ -284,13 +284,12 @@
                   class="j-delete-goods btn font-size-14 btn-red"
                 > -->
                 <!-- 如果 removeLists 为空 那么就是disabled -->
-                 <button 
-                  v-show="editingShop"
-                  href="javascript:;"   
-                  :disabled="!removeLists.length" 
-                  class="j-delete-goods btn font-size-14 btn-red"
+                 <button href="javascript:;"  class="j-delete-goods btn font-size-14 btn-red"
+                  v-show="editingShop"   
+                  :disabled="!removeLists.length"
+                  @click="removeList"  
                 >
-                    删除
+                    删除 ({{removeLists.length}})
                 </button>
               </div>
             </div>

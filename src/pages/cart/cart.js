@@ -29,21 +29,20 @@ let cart = new Vue({
 	el: '#cart',
 	data:{
 		cartLists : null,
-		// 价格初始化就是个 0 
-		// 在计算属性中进行计算
+		// 价格初始化就是个 0 ,在计算属性中进行计算
 		total: 0,
 		editingShop: null,
 		editingShopIdx : -1,
 		removePopUp: false,
 		removeData: null,
-		removePopMsg: '您确认删除该商品吗？',
-
+		removePopMsg: '',
 	},//data
 	methods:{
 		getCartData(){
 			axios.get(url.cartList)
 			  .then(res=>{
-			  	//1-   ⚠️先拿到原始数据,对原始数据进行操作，然后在赋值
+			  	// 0- ⚠️先赋值然后在添加的属性vue是不负责跟踪变化的 为了解决这个问题，需要对数据进行初始化的处理
+			  	//1-   先拿到原始数据，然后在赋值
 			  	//2- 「对原始数据进行操作」  给每一件商品都添加一个 checked 属性 
 			  	// 3- 给店铺的选择也像商品一样 处理一波
 			  	let datas = res.data.data.cartList
@@ -54,14 +53,14 @@ let cart = new Vue({
 			  		// 开始时 都是不可以编辑的,同时显示的都是 「编辑」字样
 			  		shop.editing = false
 			  		shop.editingMsg = '编辑'
-			  		// 是否删除选中 全给false 让用户自己选择看看删哪个
+			  		// 是否删除选中的商品 全给false 让用户自己选择看看删哪个
 			  		shop.removeChecked = false
 			  		shop.goodList.forEach(good=>{
 			  			good.checked = true
 			  			good.removeChecked = false
 			  		})
 			  	})
-			  	// 最后把处理过的数据送进cartLists里面去
+			  	// 最后把处理过的数据送进data中的cartLists里面去
 			  	this.cartLists = datas
 			})
 			  .catch(err=>{
@@ -99,12 +98,13 @@ let cart = new Vue({
 			let attr =  this.editingShop?'allRemoveSelected':'allSelected'
 			this[attr] = !this[attr]
 		},//selectAll
+		// 编辑店铺的方法
 		editShop(shop,shopIdx){
-			// 对商铺的编辑状态进行相互切换
+			// 对商铺的编辑状态进行相互切换 默认是false
 			shop.editing = !shop.editing
-			// 做一个三目 在编辑状态的同时对文字进行动态变化
+			// 做一个三目 以shop.editing的布尔值为中心在编辑状态的同时对文字进行动态变化
 			shop.editingMsg = shop.editing?'完成':'编辑'
-			// 对编辑状态进行判断，目的是对其他店铺进行「不可编辑」的处理
+			// 依托商铺的下标对编辑状态进行判断，目的是对其他店铺进行「不可编辑」的处理 整个逻辑流程自己要清晰
 			this.cartLists.forEach((shopItem,idx)=>{
 				if(shopIdx !== idx){
 					// 其他店铺的状态都是 不可编辑状态
@@ -120,6 +120,9 @@ let cart = new Vue({
 		// ⚠️ 先异步请求 更改数据库中的数据，数据库中的数据更改成功了，本地数据进行相应的变化就可以
 		reduce(good){
 			if(good.number === 1) return 
+			Cart.reduce(good.id).then(res=>{
+				good.number--
+			})
 
 			// axios.post(url.cartReduce,{
 			// 	id: good.id,
@@ -128,11 +131,6 @@ let cart = new Vue({
 			// }).then(res=>{
 			// 	good.number--
 			// })
-
-			Cart.reduce(good.id).then(res=>{
-				good.number--
-			})
-
 		},//reduce
 		
 		//增加商品 要进行异步数据请求 也更新到数据库中
@@ -156,58 +154,83 @@ let cart = new Vue({
 			this.removePopUp = true
 			// 因为removeConfirm 接收不到要删除的商品与店铺的信息，所以把信息先存到 removeData 里面去
 			this.removeData = {shop,shopIndex,good,goodIndex}
+			this.removePopMsg = '您确认删除该商品吗？'
 
 		},//remove
+		// ⚠️ 计算属性 removeLists 依托于 removeList
 		removeList(){
+			// 激活弹窗
 			this.removePopUp = true
+			// removeLists 在计算属性中实时计算长度
 			this.removePopMsg = `确定要将所选中的${this.removeLists.length}个商品删除吗？`
 		},//removeList
-		// 通过异步请求 把这个商品删掉
+		
+
+		// 通过异步请求 把这个商品删掉~
 		removeConfirm(){ 
-			console.log('确认删除')
+			// 进入删除单个商品逻辑 依托弹窗信息判断 传单个商品id
 			if(this.removePopMsg === '您确认删除该商品吗？'){
 					// 因为在 remove 方法中已经把数据送进 removeData 里面去了 所以 这个方法就可以用了 先来个对象的解构赋值
 				let {shop,shopIndex,good,goodIndex} = this.removeData
-				// 异步告诉数据库 把相应的商品信息删除掉
+				// 传个商品id 异步告诉数据库 把相应的商品信息删除掉
 				axios.post(url.cartRemove,{
 					id: good.id,
-					// 数据库操作完成后，就要对本地的数据操作一波啦
+					// 数据库操作完成后
 				}).then(res=>{
+					// 依托 goodIndex商品下标 就要对本地的数据「前端显示这块儿」操作一波啦
 					shop.goodList.splice(goodIndex,1)
-					// 当某个店铺的商品一个都不剩下的时候，店铺也要消失掉 利用shopIndex
+					// 当店铺没有商品的时候，利用 shopIndex 让店铺也要消失掉 
 					if(!shop.goodList.length){
 						this.cartLists.splice(shopIndex,1)
 						// 将无效店铺删除掉之后，要将剩下的店铺切换到正常状态 专门写一个方法用来处理其他店铺的变化，
 						// 搞定这个就要想想 批量删除具体怎么搞了
 						this.removeShop()
 					}
+					// 弹层收起来吧
 					this.removePopUp = false
 				})
 			}
-			// else{
-			// 	let idx = []
-			// 	this.removeLists.forEach(good=>{
-			// 		idx.push(good.id)
-			// 	})
-			// 	axios.post(url.cartMremove,{
-			// 		idx
-			// 	}).then(res=>{
-			// 		let arr = []
-			// 		this.editingShop.goodList.forEach(good=>{
-			// 			let index = this.removeLists.findIndex(item=>{
-			// 				return item.id =  good.id
-			// 			})
-			// 			if(index === -1){
-			// 				arr.push(good)
-			// 			}
-			// 		})
-			// 		if(arr.length){
-			// 			this.editingShop.goodList = arr
-
-			// 		}
-
-			// 	})
-			// }
+			// 进入删除多个的逻辑 传一个数组 数组中都是商品id
+			// 分两种情况 一种是将其中一个店铺的商品全部删除了，另一种情况是，只删除了该店铺的其中一部分商品
+			// 前一种情况记得通过 shopIndex 把空店铺也删除一下
+			else{
+				let ids = []
+				// 通过遍历 拿到计算属性removeLists 中的商品,将商品id传进去
+				this.removeLists.forEach(good=>{
+					ids.push(good.id)
+				})
+				axios.post(url.cartMremove,{
+					ids
+				})
+				// 接着分两种情况进行处理
+				.then(res=>{
+					let arr = []
+					//遍历要编辑店铺的这个商品列表 => this.editingShop.goodList
+					// 通过 removeLists 看看要删除的商品 在不在 this.editingShop.goodList 里面
+					// 如果不在 送进幸存商品的数组中
+					// 接着把新数组给到这个 this.editingShop.goodList 里面
+					// 如果没有幸存商品 那就删除该店铺
+					this.editingShop.goodList.forEach(good=>{
+						let index = this.removeLists.findIndex(item=>{
+							// 之前这儿少写了一个等于号
+							return item.id ===  good.id
+						})
+						if(index === -1){
+							arr.push(good)
+						}
+					})
+					// ⚠️ 如果群删了一波还有商品 那把剩的商品送进 goodList 里面去
+					// 如果 店铺下面已经没有商品了，那还是老规矩 通过 removeShop 方法 依托 editingShopIdx 把店铺也删除掉
+					// 顺道还原其他的店铺与商品
+					if(arr.length){
+						this.editingShop.goodList = arr
+					}else{
+						this.removeShop(this.editingShopIdx)
+					}
+					// 关弹窗
+					this.removePopUp = false
+				})
+			}
 		},//removeConfirm
 		removeCancel(){
 			this.removePopUp = false
@@ -216,12 +239,16 @@ let cart = new Vue({
 		removeOverlay(){
 			this.removePopUp = false
 		},
-		// 将无效店铺删除掉之后，要将剩下的店铺切换到正常状态 给removeConfirm 这个方法中使用
-		removeShop(){
-			// 还原初始值
+		// ⚠️ removeShop方法是给removeConfirm 这个方法中使用的补充方法 
+		// 将无效店铺删除掉之后，要将剩下的店铺切换到正常状态 
+		// 在做多个删除中 将这个方法进行了拓展 除了恢复其他店铺功能 通过cartLists依托shopIndex 也有了删除功能
+		removeShop(shopIndex){
+			this.cartLists.splice(shopIndex, 1)
+			// 还原初始值让商品，店铺进入开始刚进页面时的正常状态 =>商品，店铺都要进行还原,不然其他店铺与商品都还是 「不正常的状态」
+			// 先把根 data中的 editingShop 与 editingShopIdx 都恢复
 			this.editingShop = null
 			this.editingShopIdx = -1
-			// 重新遍历数据 重新赋予状态与文字
+			// ⚠️ 接着 重新遍历数据 重新赋予店铺正常的状态与文字
 			this.cartLists.forEach(shop=>{
         shop.editing = false
         shop.editingMsg = '编辑'
@@ -263,9 +290,9 @@ let cart = new Vue({
 		// 全选 这个功能 用计算属性来做。 要用到 get set 所以用对象的形式写
 		allSelected:{
 			get(){
+				// 先判断有没有数据 没数据就给个false
 				if(this.cartLists&&this.cartLists.length){
-					// 判断cartLists中的所有店铺有没有被选中
-					// 判断cartLists中的所有店铺的checked的值是不是为true
+					// 判断cartLists中的所有店铺有没有被选中 并且判断其中的所有店铺的checked的值是不是为true
 					return this.cartLists.every(shop=>{
 						return shop.checked
 					})
@@ -283,12 +310,13 @@ let cart = new Vue({
 				})
 			},
 		},//allSelect
-		// 选中商品的价格计算 不用set 只需要用get 所以直接用方法写就可以了
+		// ⚠️ 选中商品的价格计算 不用set 只需要用get 所以直接用方法写就可以了
 		selectedLists(){
 			// 如果 cartLists 的长度为空的时候 咱就不算了,返回一个空数组
 			// 如果 cartLists 存在并且长度不为空的时候 在继续计算
-			// 要遍历两层
+			// 因为接口数据的原因遍历两层
 			if(this.cartLists&&this.cartLists.length){
+				// 给个空数组很重要
 				let arr = []
 				let total = 0
 				this.cartLists.forEach(shop=>{
@@ -309,21 +337,22 @@ let cart = new Vue({
 				return []
 			}	
 		},//selectedList
-
-		// 删除物品的方法
 		removeLists(){
+			// 如果店铺在编辑状态，并且该店铺店铺下的商品有被选择，那么就push到数组中去
+			// 如果没有就给个空数组
 			if(this.editingShop){
 				let arr = []
 				this.editingShop.goodList.forEach(good=>{
+					// 如果商品已经被选中 把商品push到临时空数组里面去 否则给个空数组
 					if(good.removeChecked){
 						arr.push(good)
 					}
 				})
 				return arr
-			}else {
-				return []
 			}
+			return []
 		},//removeLists
+
 		allRemoveSelected:{
 			get(){
 				if (this.editingShop) {
@@ -344,6 +373,12 @@ let cart = new Vue({
 		}
 
 	},//computed
+	watch:{
+		removePopUp(newVal,oldVal){
+			document.body.style.overflow = newVal ? 'hidden': 'auto'
+      document.body.style.height = newVal?'100%': 'auto'  
+		}
+	},//watch
 	created(){
 		this.getCartData()
 	}// created
